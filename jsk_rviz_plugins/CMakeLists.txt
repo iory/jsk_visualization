@@ -134,6 +134,7 @@ set(SOURCE_FILES
   src/plotter_2d_display.cpp
   src/pie_chart_display.cpp
   src/diagnostics_display.cpp
+  src/convex_bounding_box_display.cpp
   src/bounding_box_display.cpp
   src/bounding_box_array_display.cpp
   src/torus_array_display.cpp
