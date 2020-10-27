@@ -46,6 +46,7 @@
 #include <OgreSharedPtr.h>
 
 # include <sensor_msgs/CameraInfo.h>
+#include <image_transport/image_transport.h>
 
 # include <message_filters/subscriber.h>
 #if ROS_VERSION_MINIMUM(1, 15, 0) // noetic and greater
@@ -149,12 +150,16 @@ private:
   tf::MessageFilter<sensor_msgs::CameraInfo>* caminfo_tf_filter_;
 #endif
 
+  // for publishing overlay camera image
+  image_transport::Publisher publisher_;
+
   FloatProperty* alpha_property_;
   EnumProperty* image_position_property_;
   FloatProperty* zoom_property_;
   DisplayGroupVisibilityProperty* visibility_property_;
 
   sensor_msgs::CameraInfo::ConstPtr current_caminfo_;
+  sensor_msgs::Image::ConstPtr current_image_;
   boost::mutex caminfo_mutex_;
 
   bool new_caminfo_;
@@ -164,6 +169,9 @@ private:
   bool force_render_;
 
   uint32_t vis_bit_;
+
+  ros::NodeHandle nh_;
+
 protected:
   OverlayObject::Ptr overlay_;
   void redraw();
@@ -176,12 +184,17 @@ protected:
   int left_, top_;
   float texture_alpha_;
   bool initializedp_;
+
+  // for publishing overlay camera image
+  rviz::StringProperty* publish_topic_name_property_;
+  std::string publish_topic_name_;
 private Q_SLOTS:
   void updateWidth();
   void updateHeight();
   void updateLeft();
   void updateTop();
   void updateTextureAlpha();
+  void updateTopicName();
 };
 
 }

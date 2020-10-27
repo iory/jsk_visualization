@@ -65,7 +65,9 @@
 #include "rviz/properties/display_group_visibility_property.h"
 #include "rviz/load_resource.h"
 
+#include <cv_bridge/cv_bridge.h>
 #include <image_transport/camera_common.h>
+#include <image_transport/image_transport.h>
 #include "overlay_camera_display.h"
 
 namespace jsk_rviz_plugins
@@ -131,6 +133,9 @@ OverlayCameraDisplay::OverlayCameraDisplay()
                                               this, SLOT(updateTextureAlpha()));
   texture_alpha_property_->setMin(0.0);
   texture_alpha_property_->setMax(1.0);
+
+  publish_topic_name_property_ = new rviz::StringProperty("topic_name", "/overlay_camera/image",
+                                                          "topic_name", this, SLOT(updateTopicName()));
 }
 
 OverlayCameraDisplay::~OverlayCameraDisplay()
@@ -372,6 +377,8 @@ void OverlayCameraDisplay::clear()
   new_caminfo_ = false;
   current_caminfo_.reset();
 
+  current_image_.reset();
+
   setStatus( StatusProperty::Warn, "Camera Info",
              "No CameraInfo received on [" + QString::fromStdString( caminfo_sub_.getTopic() ) + "].  Topic may not exist.");
   setStatus( StatusProperty::Warn, "Image", "No Image received");
@@ -407,6 +414,17 @@ void OverlayCameraDisplay::update( float wall_dt, float ros_dt )
   redraw();
   overlay_->setDimensions(width_, height_);
   overlay_->setPosition(left_, top_);
+
+  ScopedPixelBuffer buffer = overlay_->getBuffer();
+  QImage Hud = buffer.getQImage(*overlay_);
+  cv::Mat image(width_, height_, CV_8UC3, Hud.bits());
+
+  if( current_image_ ) {
+    sensor_msgs::Image img_msg;
+    cv_bridge::CvImage img_bridge = cv_bridge::CvImage(current_image_->header, sensor_msgs::image_encodings::RGB8, image);
+    img_bridge.toImageMsg(img_msg);
+    publisher_.publish(img_msg);
+  }
 }
 
 void OverlayCameraDisplay::redraw()
@@ -584,8 +602,16 @@ bool OverlayCameraDisplay::updateCamera()
   return true;
 }
 
+void OverlayCameraDisplay::updateTopicName()
+{
+  publish_topic_name_ = publish_topic_name_property_->getStdString();
+  publisher_ = it_->advertise(publish_topic_name_, 1);
+}
+
+
 void OverlayCameraDisplay::processMessage(const sensor_msgs::Image::ConstPtr& msg)
 {
+  current_image_ = msg;
   texture_.addMessage(msg);
 }
 
