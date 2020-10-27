@@ -134,8 +134,13 @@ OverlayCameraDisplay::OverlayCameraDisplay()
   texture_alpha_property_->setMin(0.0);
   texture_alpha_property_->setMax(1.0);
 
-  publish_topic_name_property_ = new rviz::StringProperty("topic_name", "/overlay_camera/image",
-                                                          "topic_name", this, SLOT(updateTopicName()));
+  publish_image_property_ = new rviz::BoolProperty("publish image",
+                                                   false,
+                                                   "publish image",
+                                                   this, SLOT(updatePublishImage()));
+
+  publish_topic_name_property_ = new rviz::StringProperty("publish_topic_name", "/rviz/overlay_camera/image",
+                                                          "publish_topic_name", this, SLOT(updateTopicName()));
 }
 
 OverlayCameraDisplay::~OverlayCameraDisplay()
@@ -238,7 +243,9 @@ void OverlayCameraDisplay::onInitialize()
   updateLeft();
   updateTop();
   updateTextureAlpha();
-  
+  updateTopicName();
+  updatePublishImage();
+
   render_panel_ = new RenderPanel();
   render_panel_->getRenderWindow()->addListener( this );
   render_panel_->getRenderWindow()->setAutoUpdated(false);
@@ -292,12 +299,14 @@ void OverlayCameraDisplay::onEnable()
   if (overlay_) {
     overlay_->show();
   }
+  updateTopicName();
 }
 
 void OverlayCameraDisplay::onDisable()
 {
   render_panel_->getRenderWindow()->setActive(false);
   unsubscribe();
+  unadvertise();
   clear();
   if (overlay_) {
     overlay_->hide();
@@ -328,6 +337,11 @@ void OverlayCameraDisplay::subscribe()
   {
     setStatus( StatusProperty::Error, "Camera Info", QString( "Error subscribing: ") + e.what() );
   }
+}
+
+void OverlayCameraDisplay::unadvertise()
+{
+  publisher_.shutdown();
 }
 
 void OverlayCameraDisplay::unsubscribe()
@@ -419,10 +433,15 @@ void OverlayCameraDisplay::update( float wall_dt, float ros_dt )
   QImage Hud = buffer.getQImage(*overlay_);
   cv::Mat image(width_, height_, CV_8UC3, Hud.bits());
 
-  if( current_image_ ) {
+  if (publish_image_ && current_image_) {
     sensor_msgs::Image img_msg;
     cv_bridge::CvImage img_bridge = cv_bridge::CvImage(current_image_->header, sensor_msgs::image_encodings::RGB8, image);
     img_bridge.toImageMsg(img_msg);
+
+    if (publish_image_topic_updated_) {
+      publisher_ = it_->advertise(publish_topic_name_, 1);
+      publish_image_topic_updated_ = false;
+    }
     publisher_.publish(img_msg);
   }
 }
@@ -605,9 +624,19 @@ bool OverlayCameraDisplay::updateCamera()
 void OverlayCameraDisplay::updateTopicName()
 {
   publish_topic_name_ = publish_topic_name_property_->getStdString();
-  publisher_ = it_->advertise(publish_topic_name_, 1);
+  publish_image_topic_updated_ = true;
+  unadvertise();
 }
 
+void OverlayCameraDisplay::updatePublishImage()
+{
+  publish_image_ = publish_image_property_->getBool();
+  if (publish_image_ == true) {
+    publish_image_topic_updated_ = true;
+  } else {
+    unadvertise();
+  }
+}
 
 void OverlayCameraDisplay::processMessage(const sensor_msgs::Image::ConstPtr& msg)
 {

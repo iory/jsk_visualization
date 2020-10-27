@@ -125,6 +125,7 @@ private Q_SLOTS:
 private:
   void subscribe();
   void unsubscribe();
+  void unadvertise();
 
   virtual void processMessage(const sensor_msgs::Image::ConstPtr& msg);
   void caminfoCallback( const sensor_msgs::CameraInfo::ConstPtr& msg );
@@ -168,9 +169,10 @@ private:
 
   bool force_render_;
 
-  uint32_t vis_bit_;
+  bool publish_image_;
+  bool publish_image_topic_updated_;
 
-  ros::NodeHandle nh_;
+  uint32_t vis_bit_;
 
 protected:
   OverlayObject::Ptr overlay_;
@@ -187,6 +189,7 @@ protected:
 
   // for publishing overlay camera image
   rviz::StringProperty* publish_topic_name_property_;
+  rviz::BoolProperty* publish_image_property_;
   std::string publish_topic_name_;
 private Q_SLOTS:
   void updateWidth();
@@ -195,6 +198,7 @@ private Q_SLOTS:
   void updateTop();
   void updateTextureAlpha();
   void updateTopicName();
+  void updatePublishImage();
 };
 
 }
